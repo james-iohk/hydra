@@ -2,7 +2,6 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 -- | Implements the Head Protocol's /state machine/ as a /pure function/.
 --
@@ -94,114 +93,6 @@ import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, ge
 
 defaultTTL :: TTL
 defaultTTL = 5
-
--- | Preliminary type for collecting errors occurring during 'update'.
--- TODO: Try to merge this (back) into 'Outcome'.
-data LogicError tx
-  = InvalidEvent (Event tx) (HeadState tx)
-  | InvalidState (HeadState tx)
-  | InvalidSnapshot {expected :: SnapshotNumber, actual :: SnapshotNumber}
-  | LedgerError ValidationError
-  | RequireFailed (RequirementFailure tx)
-  | NotOurHead {ourHeadId :: HeadId, otherHeadId :: HeadId}
-  deriving stock (Generic)
-
-instance (Typeable tx, Show (Event tx), Show (HeadState tx), Show (RequirementFailure tx)) => Exception (LogicError tx)
-
-instance (Arbitrary (Event tx), Arbitrary (HeadState tx), Arbitrary (RequirementFailure tx)) => Arbitrary (LogicError tx) where
-  arbitrary = genericArbitrary
-
-deriving instance (Eq (HeadState tx), Eq (Event tx), Eq (RequirementFailure tx)) => Eq (LogicError tx)
-deriving instance (Show (HeadState tx), Show (Event tx), Show (RequirementFailure tx)) => Show (LogicError tx)
-deriving instance (ToJSON (HeadState tx), ToJSON (Event tx), ToJSON (RequirementFailure tx)) => ToJSON (LogicError tx)
-deriving instance (FromJSON (HeadState tx), FromJSON (Event tx), FromJSON (RequirementFailure tx)) => FromJSON (LogicError tx)
-
-data RequirementFailure tx
-  = ReqSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
-  | ReqSnNotLeader {requestedSn :: SnapshotNumber, leader :: Party}
-  | InvalidMultisignature {multisig :: Text, vkeys :: [VerificationKey HydraKey]}
-  | SnapshotAlreadySigned {knownSignatures :: [Party], receivedSignature :: Party}
-  | AckSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
-  | SnapshotDoesNotApply {requestedSn :: SnapshotNumber, txid :: TxIdType tx, error :: ValidationError}
-  deriving stock (Generic)
-
-deriving instance (Eq (TxIdType tx)) => Eq (RequirementFailure tx)
-deriving instance (Show (TxIdType tx)) => Show (RequirementFailure tx)
-deriving instance (ToJSON (TxIdType tx)) => ToJSON (RequirementFailure tx)
-deriving instance (FromJSON (TxIdType tx)) => FromJSON (RequirementFailure tx)
-
-instance Arbitrary (TxIdType tx) => Arbitrary (RequirementFailure tx) where
-  arbitrary = genericArbitrary
-
-data Outcome tx
-  = NoOutcome
-  | Effects {effects :: [Effect tx]}
-  | NewState {headState :: HeadState tx}
-  | Wait {reason :: WaitReason tx}
-  | Error {error :: LogicError tx}
-  | Combined {left :: Outcome tx, right :: Outcome tx}
-  deriving stock (Generic)
-
-deriving instance (IsChainState tx) => Eq (Outcome tx)
-deriving instance (IsChainState tx) => Show (Outcome tx)
-deriving instance (IsChainState tx) => ToJSON (Outcome tx)
-deriving instance (IsChainState tx) => FromJSON (Outcome tx)
-
-instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (Outcome tx) where
-  arbitrary = genericArbitrary
-
-data WaitReason tx
-  = WaitOnNotApplicableTx {validationError :: ValidationError}
-  | WaitOnSnapshotNumber {waitingFor :: SnapshotNumber}
-  | WaitOnSeenSnapshot
-  | WaitOnTxs {waitingForTxIds :: [TxIdType tx]}
-  | WaitOnContestationDeadline
-  deriving stock (Generic)
-
-deriving instance (IsTx tx) => Eq (WaitReason tx)
-deriving instance (IsTx tx) => Show (WaitReason tx)
-deriving instance (IsTx tx) => ToJSON (WaitReason tx)
-deriving instance (IsTx tx) => FromJSON (WaitReason tx)
-
-instance IsTx tx => Arbitrary (WaitReason tx) where
-  arbitrary = genericArbitrary
-
-data Environment = Environment
-  { party :: Party
-  -- ^ This is the p_i from the paper
-  , -- NOTE(MB): In the long run we would not want to keep the signing key in
-    -- memory, i.e. have an 'Effect' for signing or so.
-    signingKey :: SigningKey HydraKey
-  , otherParties :: [Party]
-  , contestationPeriod :: ContestationPeriod
-  }
-
-collectEffects :: Outcome tx -> [Effect tx]
-collectEffects = \case
-  NoOutcome -> []
-  Error _ -> []
-  Wait _ -> []
-  NewState _ -> []
-  Effects effs -> effs
-  Combined l r -> collectEffects l <> collectEffects r
-
-collectWaits :: Outcome tx -> [WaitReason tx]
-collectWaits = \case
-  NoOutcome -> []
-  Error _ -> []
-  Wait w -> [w]
-  NewState _ -> []
-  Effects _ -> []
-  Combined l r -> collectWaits l <> collectWaits r
-
-collectState :: Outcome tx -> [HeadState tx]
-collectState = \case
-  NoOutcome -> []
-  Error _ -> []
-  Wait _ -> []
-  NewState s -> [s]
-  Effects _ -> []
-  Combined l r -> collectState l <> collectState r
 
 -- * The Coordinated Head protocol
 
@@ -429,60 +320,28 @@ onOpenNetworkReqTx env ledger st ttl tx =
           NewState (Open st{coordinatedHeadState = trackTxInState})
             `Combined` Wait (WaitOnNotApplicableTx err)
     Right utxo' ->
-      Effects [ClientEffect $ TxValid headId tx]
-        `Combined` if isLeader parameters party nextSn && not snapshotInFlight
-          then
-            NewState
-              ( Open
-                  st
-                    { coordinatedHeadState =
-                        trackTxInState
-                          { seenTxs = seenTxs'
-                          , seenUTxO = utxo'
-                          , seenSnapshot =
-                              RequestedSnapshot
-                                { lastSeen = seenSnapshotNumber seenSnapshot
-                                , requested = nextSn
-                                }
-                          }
+      NewState
+        ( Open
+            st
+              { coordinatedHeadState =
+                  trackTxInState
+                    { seenTxs = seenTxs <> [tx]
+                    , seenUTxO = utxo'
                     }
-              )
-              `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs'))]
-          else
-            NewState
-              ( Open
-                  st
-                    { coordinatedHeadState =
-                        trackTxInState
-                          { seenTxs = seenTxs'
-                          , seenUTxO = utxo'
-                          }
-                    }
-              )
+              }
+        )
+        `Combined` Effects [ClientEffect $ TxValid headId tx]
+        & emitSnapshot env
  where
   Ledger{applyTransactions} = ledger
 
-  Environment{party} = env
+  CoordinatedHeadState{allTxs, seenTxs, seenUTxO} = coordinatedHeadState
 
-  CoordinatedHeadState{allTxs, seenTxs, seenUTxO, confirmedSnapshot, seenSnapshot} = coordinatedHeadState
-
-  Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
-
-  OpenState{coordinatedHeadState, headId, currentSlot, parameters} = st
+  OpenState{coordinatedHeadState, headId, currentSlot} = st
 
   trackTxInState = coordinatedHeadState{allTxs = Map.insert (txId tx) tx allTxs}
 
   untrackTxInState = coordinatedHeadState{allTxs = Map.delete (txId tx) allTxs}
-
-  snapshotInFlight = case seenSnapshot of
-    NoSeenSnapshot -> False
-    LastSeenSnapshot{} -> False
-    RequestedSnapshot{} -> True
-    SeenSnapshot{} -> True
-
-  nextSn = confirmedSn + 1
-
-  seenTxs' = seenTxs <> [tx]
 
 -- | Process a snapshot request ('ReqSn') from party.
 --
@@ -619,7 +478,7 @@ onOpenNetworkAckSn ::
   -- | Snapshot number of this AckSn.
   SnapshotNumber ->
   Outcome tx
-onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn =
+onOpenNetworkAckSn env openState otherParty snapshotSignature sn =
   -- TODO: verify authenticity of message and whether otherParty is part of the head
   -- Spec: require s ∈ {ŝ, ŝ + 1}
   requireValidAckSn $ do
@@ -632,41 +491,21 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
           -- Spec: σ̃ ← MS-ASig(k_H, ̂Σ̂)
           let multisig = aggregateInOrder sigs' parties
           let allTxs' = foldr Map.delete allTxs confirmed
-          let nextSn = sn + 1
           requireVerifiedMultisignature multisig snapshot $
-            Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
-              `Combined` if isLeader parameters party nextSn && not (null seenTxs)
-                then
-                  NewState
-                    ( onlyUpdateCoordinatedHeadState $
-                        coordinatedHeadState
-                          { confirmedSnapshot =
-                              ConfirmedSnapshot
-                                { snapshot
-                                , signatures = multisig
-                                }
-                          , seenSnapshot =
-                              RequestedSnapshot
-                                { lastSeen = sn
-                                , requested = nextSn
-                                }
-                          , allTxs = allTxs'
+            NewState
+              ( onlyUpdateCoordinatedHeadState $
+                  coordinatedHeadState
+                    { confirmedSnapshot =
+                        ConfirmedSnapshot
+                          { snapshot
+                          , signatures = multisig
                           }
-                    )
-                    `Combined` Effects [NetworkEffect (ReqSn nextSn (txId <$> seenTxs))]
-                else
-                  NewState
-                    ( onlyUpdateCoordinatedHeadState $
-                        coordinatedHeadState
-                          { confirmedSnapshot =
-                              ConfirmedSnapshot
-                                { snapshot
-                                , signatures = multisig
-                                }
-                          , seenSnapshot = LastSeenSnapshot sn
-                          , allTxs = allTxs'
-                          }
-                    )
+                    , seenSnapshot = LastSeenSnapshot (number snapshot)
+                    , allTxs = allTxs'
+                    }
+              )
+              `Combined` Effects [ClientEffect $ SnapshotConfirmed headId snapshot multisig]
+              & emitSnapshot env
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -715,15 +554,13 @@ onOpenNetworkAckSn Environment{party} openState otherParty snapshotSignature sn 
   onlyUpdateCoordinatedHeadState chs' =
     Open openState{coordinatedHeadState = chs'}
 
+  CoordinatedHeadState{seenSnapshot, allTxs} = coordinatedHeadState
+
   OpenState
-    { parameters
+    { parameters = HeadParameters{parties}
     , coordinatedHeadState
     , headId
     } = openState
-
-  CoordinatedHeadState{seenSnapshot, allTxs, seenTxs} = coordinatedHeadState
-
-  HeadParameters{parties} = parameters
 
 -- ** Closing the Head
 
@@ -856,7 +693,7 @@ onClosedChainFanoutTx closedState newChainState =
 -- current 'HeadState'. Resulting new 'HeadState's are retained and 'Effect'
 -- outcomes handled by the "Hydra.Node".
 update ::
-  (IsChainState tx) =>
+  IsChainState tx =>
   Environment ->
   Ledger tx ->
   HeadState tx ->
@@ -929,11 +766,3 @@ update env ledger st ev = case (st, ev) of
     Effects [ClientEffect $ CommandFailed clientInput]
   _ ->
     Error $ InvalidEvent ev st
-
--- * Snapshot helper functions
-
-isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
-isLeader HeadParameters{parties} p sn =
-  case p `elemIndex` parties of
-    Just i -> ((fromIntegral sn - 1) `mod` length parties) == i
-    _ -> False

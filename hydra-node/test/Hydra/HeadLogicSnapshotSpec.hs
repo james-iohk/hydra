@@ -19,13 +19,12 @@ import Hydra.HeadLogic (
   HeadState (..),
   OpenState (OpenState),
   SeenSnapshot (..),
-  collectEffects,
-  collectState,
   coordinatedHeadState,
   defaultTTL,
   isLeader,
   update,
  )
+import Hydra.HeadLogic.Outcome (collectEffects, collectState)
 import Hydra.HeadLogicSpec (inOpenState, inOpenState', runEvents, step)
 import Hydra.Ledger (Ledger (..), txId)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
@@ -240,5 +239,5 @@ prop_thereIsAlwaysALeader :: Property
 prop_thereIsAlwaysALeader =
   forAll arbitrary $ \sn ->
     forAll arbitrary $ \params@HeadParameters{parties} ->
-      not (null parties)
-        ==> any (\p -> isLeader params p sn) parties
+      not (null parties) ==>
+        any (\p -> isLeader params p sn) parties

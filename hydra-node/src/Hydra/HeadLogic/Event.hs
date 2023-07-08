@@ -19,6 +19,8 @@ import Hydra.Party (Party)
 
 type TTL = Natural
 
+-- TODO: Move logic up and types down or re-organize using explicit exports
+
 -- | The different events which are processed by the head logic (the "core").
 -- Corresponding to each of the "shell" layers, we distinguish between events
 -- from the client, the network and the chain.
@@ -36,10 +38,10 @@ data Event tx
     PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   deriving stock (Generic)
 
-deriving instance (IsTx tx, IsChainState tx) => Eq (Event tx)
-deriving instance (IsTx tx, IsChainState tx) => Show (Event tx)
-deriving instance (IsTx tx, IsChainState tx) => ToJSON (Event tx)
-deriving instance (IsTx tx, IsChainState tx) => FromJSON (Event tx)
+deriving instance (IsChainState tx) => Eq (Event tx)
+deriving instance (IsChainState tx) => Show (Event tx)
+deriving instance (IsChainState tx) => ToJSON (Event tx)
+deriving instance (IsChainState tx) => FromJSON (Event tx)
 
 instance
   ( IsTx tx

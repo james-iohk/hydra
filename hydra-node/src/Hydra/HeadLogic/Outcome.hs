@@ -25,10 +25,10 @@ data Effect tx
     OnChainEffect {postChainTx :: PostChainTx tx}
   deriving stock (Generic)
 
-deriving instance (IsTx tx, IsChainState tx) => Eq (Effect tx)
-deriving instance (IsTx tx, IsChainState tx) => Show (Effect tx)
-deriving instance (IsTx tx, IsChainState tx) => ToJSON (Effect tx)
-deriving instance (IsTx tx, IsChainState tx) => FromJSON (Effect tx)
+deriving instance (IsChainState tx) => Eq (Effect tx)
+deriving instance (IsChainState tx) => Show (Effect tx)
+deriving instance (IsChainState tx) => ToJSON (Effect tx)
+deriving instance (IsChainState tx) => FromJSON (Effect tx)
 
 instance
   ( IsTx tx
@@ -47,10 +47,10 @@ data Outcome tx
   | Combined {left :: Outcome tx, right :: Outcome tx}
   deriving stock (Generic)
 
-deriving instance (IsTx tx, IsChainState tx) => Eq (Outcome tx)
-deriving instance (IsTx tx, IsChainState tx) => Show (Outcome tx)
-deriving instance (IsTx tx, IsChainState tx) => ToJSON (Outcome tx)
-deriving instance (IsTx tx, IsChainState tx) => FromJSON (Outcome tx)
+deriving instance (IsChainState tx) => Eq (Outcome tx)
+deriving instance (IsChainState tx) => Show (Outcome tx)
+deriving instance (IsChainState tx) => ToJSON (Outcome tx)
+deriving instance (IsChainState tx) => FromJSON (Outcome tx)
 
 instance (IsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (Outcome tx) where
   arbitrary = genericArbitrary
@@ -66,6 +66,15 @@ collectWaits = \case
     Wait w -> [w]
     Combined l r -> collectWaits l <> collectWaits r
     _ -> []
+
+collectState :: Outcome tx -> [HeadState tx]
+collectState = \case
+  NoOutcome -> []
+  Error _ -> []
+  Wait _ -> []
+  NewState s -> [s]
+  Effects _ -> []
+  Combined l r -> collectState l <> collectState r
 
 data WaitReason tx
   = WaitOnNotApplicableTx {validationError :: ValidationError}
