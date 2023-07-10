@@ -89,6 +89,13 @@ library
     Hydra.Chain.Direct.State
     Hydra.Chain.Direct.TimeHandle
     Hydra.Chain.Direct.Tx
+    Hydra.Chain.Direct.Tx.Init
+    Hydra.Chain.Direct.Tx.Abort
+    Hydra.Chain.Direct.Tx.Commit
+    Hydra.Chain.Direct.Tx.CollectCom
+    Hydra.Chain.Direct.Tx.Close
+    Hydra.Chain.Direct.Tx.Fanout
+    Hydra.Chain.Direct.Tx.Helpers
     Hydra.Chain.Direct.Util
     Hydra.Chain.Direct.Wallet
     Hydra.ContestationPeriod
