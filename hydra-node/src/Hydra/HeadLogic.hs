@@ -21,7 +21,7 @@ module Hydra.HeadLogic (
   module Hydra.HeadLogic.Error,
   module Hydra.HeadLogic.State,
   module Hydra.HeadLogic.Outcome,
-  module Hydra.HeadLogic.Snapshot,
+  module Hydra.HeadLogic.SnapshotOutcome,
 ) where
 
 import Hydra.Prelude
@@ -64,7 +64,7 @@ import Hydra.HeadLogic.Outcome (
   collectEffects,
   collectWaits,
  )
-import Hydra.HeadLogic.Snapshot (emitSnapshot, isLeader)
+import Hydra.HeadLogic.SnapshotOutcome (emitSnapshot, isLeader)
 import Hydra.HeadLogic.State (
   ClosedState (..),
   Committed,
@@ -92,9 +92,6 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Party (Party (vkey))
 import Hydra.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 
--- * Types
-
--- ** Other types
 defaultTTL :: TTL
 defaultTTL = 5
 
@@ -208,7 +205,7 @@ collectState = \case
 
 -- * The Coordinated Head protocol
 
--- ** Opening the Head
+-- ** On-Chain Protocol
 
 -- | Client request to init the head. This leads to an init transaction on chain,
 -- containing the head parameters.

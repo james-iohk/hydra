@@ -64,9 +64,6 @@ hydraHeadV1AssetName = AssetName (fromBuiltin hydraHeadV1)
 headValue :: Value
 headValue = lovelaceToValue (Lovelace 2_000_000)
 
-
--- * Helpers
-
 mkHeadId :: PolicyId -> HeadId
 mkHeadId =
   HeadId . serialiseToRawBytes
@@ -102,5 +99,3 @@ findHeadAssetId txOut =
 findStateToken :: TxOut ctx -> Maybe HeadId
 findStateToken =
   fmap (mkHeadId . fst) . findHeadAssetId
-
-

@@ -81,5 +81,3 @@ observeFanoutTx utxo tx = do
       _ -> Nothing
  where
   headScript = fromPlutusScript Head.validatorScript
-
-

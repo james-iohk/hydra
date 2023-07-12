@@ -19,8 +19,6 @@ import Hydra.Party (Party)
 
 type TTL = Natural
 
--- TODO: Move logic up and types down or re-organize using explicit exports
-
 -- | The different events which are processed by the head logic (the "core").
 -- Corresponding to each of the "shell" layers, we distinguish between events
 -- from the client, the network and the chain.

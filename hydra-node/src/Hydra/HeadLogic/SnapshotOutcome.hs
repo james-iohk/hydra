@@ -1,4 +1,4 @@
-module Hydra.HeadLogic.Snapshot where
+module Hydra.HeadLogic.SnapshotOutcome where
 
 import Hydra.Prelude
 import Hydra.Snapshot (SnapshotNumber, Snapshot (..), getSnapshot)

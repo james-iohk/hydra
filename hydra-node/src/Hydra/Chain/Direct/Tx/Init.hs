@@ -2,12 +2,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 
--- | Smart constructors for creating Hydra protocol transactions to be used in
--- the 'Hydra.Chain.Direct' way of talking to the main-chain.
---
--- This module also encapsulates the transaction format used when talking to the
--- cardano-node, which is currently different from the 'Hydra.Ledger.Cardano',
--- thus we have not yet "reached" 'isomorphism'.
 module Hydra.Chain.Direct.Tx.Init where
 
 import Hydra.Cardano.Api
@@ -37,8 +31,6 @@ import Hydra.Ledger.Cardano.Builder (
  )
 import Hydra.Party (Party, partyFromChain, partyToChain)
 import Plutus.Orphans ()
-
--- * Create Hydra Head transactions
 
 -- | Create the init transaction from some 'HeadParameters' and a single TxIn
 -- which will be used as unique parameter for minting NFTs.
@@ -99,8 +91,6 @@ mkInitialOutput networkId seedTxIn (verificationKeyHash -> pkh) =
     fromPlutusScript Initial.validatorScript
   initialDatum =
     mkTxOutDatum $ Initial.datum (toPlutusCurrencySymbol tokenPolicyId)
-
--- * Observe Hydra Head transactions
 
 data InitObservation = InitObservation
   { threadOutput :: InitialThreadOutput
@@ -246,5 +236,3 @@ observeInitTx networkId cardanoKeys expectedCP party otherParties tx = do
     , policyId == headId
     , assetName /= hydraHeadV1AssetName
     ]
-
-

@@ -104,7 +104,7 @@ library
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Event
     Hydra.HeadLogic.Outcome
-    Hydra.HeadLogic.Snapshot
+    Hydra.HeadLogic.SnapshotOutcome
     Hydra.HeadLogic.State
     Hydra.Ledger
     Hydra.Ledger.Cardano

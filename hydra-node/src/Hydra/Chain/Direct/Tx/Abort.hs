@@ -2,12 +2,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TypeApplications #-}
 
--- | Smart constructors for creating Hydra protocol transactions to be used in
--- the 'Hydra.Chain.Direct' way of talking to the main-chain.
---
--- This module also encapsulates the transaction format used when talking to the
--- cardano-node, which is currently different from the 'Hydra.Ledger.Cardano',
--- thus we have not yet "reached" 'isomorphism'.
 module Hydra.Chain.Direct.Tx.Abort where
 
 import Hydra.Cardano.Api
@@ -16,6 +10,7 @@ import Hydra.Prelude
 import qualified Cardano.Api.UTxO as UTxO
 import qualified Data.Map as Map
 import Hydra.Chain.Direct.ScriptRegistry (ScriptRegistry (..))
+import Hydra.Chain.Direct.Tx.Helpers (headTokensFromValue)
 import qualified Hydra.Contract.Commit as Commit
 import qualified Hydra.Contract.Head as Head
 import qualified Hydra.Contract.HeadState as Head
@@ -31,7 +26,6 @@ import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
 import Plutus.Orphans ()
-import Hydra.Chain.Direct.Tx.Helpers (headTokensFromValue)
 
 data AbortTxError = OverlappingInputs
   deriving (Show)
@@ -144,5 +138,3 @@ observeAbortTx utxo tx = do
     _ -> Nothing
  where
   headScript = fromPlutusScript Head.validatorScript
-
-
