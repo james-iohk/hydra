@@ -929,3 +929,11 @@ update env ledger st ev = case (st, ev) of
     Effects [ClientEffect $ CommandFailed clientInput]
   _ ->
     Error $ InvalidEvent ev st
+
+-- * Snapshot helper functions
+
+isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
+isLeader HeadParameters{parties} p sn =
+  case p `elemIndex` parties of
+    Just i -> ((fromIntegral sn - 1) `mod` length parties) == i
+    _ -> False
